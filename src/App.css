@@ -1,0 +1,154 @@
+.App {
+  text-align: center;
+}
+
+.App-header {
+  background-color: #ff9f04;
+  color: white;
+}
+
+.App-title {
+  font-size: 1.5em;
+}
+
+.App-intro {
+  font-size: large;
+}
+
+@keyframes App-logo-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.PlayerContainer {
+  display: flex;
+  flex-direction: row;
+  background-color: red;
+  justify-content: center;
+}
+
+.Players {
+  border: 1px solid black;
+}
+
+.player, .player--active {
+  border: 1px solid black;
+  padding: 20px;
+  color: white;
+}
+
+.player--active{
+  background-color: #ff9f04;
+}
+
+.player {
+  background-color: blue;
+}
+
+.buttonContainer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-evenly;
+}
+
+.buttonContainer button {
+  min-width: 90px;
+}
+
+.progress {
+  height: 0.5rem !important;
+}
+
+.yourTurn {
+  height: 10px;
+  background: green;
+  width: 10px;
+  border-radius: 15px;
+  display: inline-block;
+}
+
+
+.modifierContainer {
+  display: flex;
+}
+
+.modifierContainer button {
+  margin-top: 0 !important;
+}
+
+.bullContainer{
+  display: flex;
+}
+
+.bullContainer button {
+  margin-top: 0 !important;
+}
+
+.bull {
+  background-color: purple;
+}
+
+.bulleye {
+  background-color: pink;
+}
+
+.specials {
+  padding: 20px 0;
+}
+
+.bullshit{
+  border-right: 1px solid darkgreen;
+}
+
+.special20-5-1{
+  border-left: 1px solid darkgreen;
+}
+
+
+
+@-webkit-keyframes triple20 {
+  0%{background-position:0 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0 50%}
+}
+@-moz-keyframes triple20 {
+  0%{background-position:0 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0 50%}
+}
+@keyframes triple20 {
+  0%{background-position:0 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0 50%}
+}
+
+.triple20 {
+  background: linear-gradient(270deg, #f5c213, #01c6b1, #5cc200);
+  background-size: 600% 600%;
+
+  -webkit-animation: triple20 4s ease infinite;
+  -moz-animation: triple20 4s ease infinite;
+  animation: triple20 4s ease infinite;
+
+}
+
+
+
+.lastThrows{
+  list-style-type: none;
+  padding: 0;
+}
+
+.lastThrows li {
+  display: inline;
+  margin-right: 5px;
+}
+
+.lastThrows li:after{
+  content: ' |';
+}
+
+.lastThrows li:last-child:after{
+  content: '';
+}
+
