@@ -137,6 +137,7 @@
 .lastThrows{
   list-style-type: none;
   padding: 0;
+  min-height: 25px;
 }
 
 .lastThrows li {

@@ -4,6 +4,9 @@ import './App.css';
 import ButtonPoint from './ButtonPoint.js';
 import NewPlayerForm from "./NewPlayerForm";
 
+import * as firebase from 'firebase';
+import 'firebase/firestore';
+
 
 // Bootstrap
 import { Progress, Button} from 'reactstrap';
@@ -13,46 +16,24 @@ class App extends Component {
     constructor(props) {
         super(props);
 
-        let user1 = {points: 301, playerName: "Jack", lastThrows: []};
-        let user2 = {points: 301, playerName: "Elias", lastThrows: []};
 
-        let players = [user1, user2];
+        let lastThrows = [];
 
         this.state = {
-            players: players,
+            players: [],
+            lastThrows: lastThrows,
             currentPlayerThrows: 1,
             playerIndex: 0,
             modifier: 1
         };
 
         this.addNewPlayer = this.addNewPlayer.bind(this);
-
-
-        const firebase = require("firebase");
-        // Required for side-effects
-        require("firebase/firestore");
-
-        // Initialize Firebase
-        const config = {
-            apiKey: "AIzaSyCho4CPFQApEpbdhUahV0EiiXBQc-86sFI",
-            authDomain: "myfirstapp-8925d.firebaseapp.com",
-            databaseURL: "https://myfirstapp-8925d.firebaseio.com",
-            projectId: "myfirstapp-8925d",
-            storageBucket: "myfirstapp-8925d.appspot.com",
-            messagingSenderId: "1084840290070"
-        };
-
-        firebase.initializeApp(config);
-
-    }
+        }
 
     componentWillMount() {
-        this.firebaseRef = firebase.database().ref("items");
-        this.firebaseRef.on("child_added", function(dataSnapshot) {
-            this.setState({
-                items: this.items
-            });
-        }.bind(this));
+        this.addNewPlayer("Jack");
+        this.addNewPlayer("Elias");
+
     }
 
     throwDart(dartPoints, goDirectlyToNextPlayer) {
@@ -60,8 +41,11 @@ class App extends Component {
             this.addPointsToPlayer(dartPoints);
             this.nextPlayerTurn();
         }else{
+            let playerIndex = this.state.playerIndex;
+
             let modifier = this.state.modifier;
-            this.addPointsToPlayer(dartPoints * modifier);
+            this.addPointsToPlayer(dartPoints * modifier, playerIndex);
+            this.incrementStats(dartPoints, modifier, playerIndex);
 
             this.setState((previousState) => ({
                 currentPlayerThrows: previousState.currentPlayerThrows + 1
@@ -72,7 +56,99 @@ class App extends Component {
             if(this.state.currentPlayerThrows === 3) {
                 this.nextPlayerTurn();
             }
+
         }
+
+        if(dartPoints === 15) {
+            this.saveStats();
+        }else if (dartPoints === 14) {
+            this.createNewUser();
+        }
+    }
+
+    incrementStats(dartPoints, modifier, playerIndex) {
+        let players = this.state.players.slice();
+
+        players[playerIndex].throws[modifier - 1].push(dartPoints);
+        players[playerIndex].numberThrows++;
+
+        if(modifier === 2){
+            players[playerIndex].doubleThrows++
+        }else if(modifier === 3){
+            players[playerIndex].tripleThrows++;
+        }
+
+        console.log(JSON.stringify(players[playerIndex]));
+
+        this.setState({players: players});
+    }
+
+    saveStats() {
+        //game finished
+        let self = this;
+
+        let players = this.state.players.slice();
+        const db = firebase.firestore();
+
+        players.forEach((player) => {
+            console.log('player ');
+            let userRef = db.collection('users').doc(player.playerName);
+
+            db.runTransaction((transaction => {
+                return transaction.get(userRef).then((doc) => {
+
+                    if(doc.exists){
+                        let pointsInGame = 301 - player.points;
+
+                        let playerToSave = {
+                            totalPoints: doc.data().totalPoints + pointsInGame,
+                            averageEndScore: (doc.data().averageEndScore + player.points) / 2,
+                            averageDartScore: (doc.data().averageDartScore + (pointsInGame / player.numberThrows)) / 2,
+                            doubleThrows: doc.data().doubleThrows + player.doubleThrows,
+                            tripleThrows: doc.data().tripleThrows + player.tripleThrows
+                        };
+
+                        transaction.update(userRef, playerToSave);
+                    }else {
+                        this.createNewUser(player);
+                    }
+
+                })
+            })).then((success) => {
+                console.log("User : " + player.playerName + " saved.");
+            }).catch((error) => {
+                console.log("Error " + error);
+            });
+        });
+    }
+
+    createNewUser(player) {
+        const db = firebase.firestore();
+        //points: 301, playerName: "Jack", throws: [[], [], []], numberThrows: 0, totalScore: 0, doubleThrows: 0, tripleThrows: 0}
+
+        console.log('test' + player.throws[0][0] + player.throws[0][1] + player.throws[0][2]);
+
+
+
+        let playerToSave = {
+            playerName: player.playerName,
+            totalPoints: 301 - player.points,
+            averageEndScore: player.points,
+            averageDartScore: (301 - player.points) / player.numberThrows,
+            doubleThrows: player.doubleThrows,
+            tripleThrows: player.tripleThrows,
+            simpleThrowsPoints: [],
+            doubleThrowsPoints: player.throws[0][1],
+            tripeThrowsPoints: [],
+        };
+
+        console.log(JSON.stringify(playerToSave));
+
+        db.collection('users').doc(player.playerName).set(playerToSave).then((success) => {
+            console.log('Player ' + player.playerName + ' has been added.');
+        }).catch((error) => {
+            console.log('Player ' + player.playerName + ' has not been added.' + error);
+        });
     }
 
     updateModifier(value) {
@@ -89,33 +165,25 @@ class App extends Component {
         this.resetThrowHistory(newPlayerIndex);
     }
 
-    addPointsToPlayer(dartPoints) {
+    addPointsToPlayer(dartPoints, playerIndex) {
         let players = this.state.players;
-        let playerIndex = this.state.playerIndex;
 
         players[playerIndex].points -= dartPoints;
-        this.updateThrowHistory(dartPoints, playerIndex);
+        this.updateThrowHistory(dartPoints);
 
         this.forceUpdate();
     }
 
-    updateThrowHistory(dartPoints, playerIndex){
-        let players = this.state.players.slice();
-        let throwsOfPlayer = players[playerIndex].lastThrows.slice();
-        throwsOfPlayer.push(dartPoints);
+    updateThrowHistory(dartPoints){
+        let modifiedThrows = this.state.lastThrows.slice();
+        modifiedThrows.push(dartPoints);
 
-        players[playerIndex].lastThrows = throwsOfPlayer;
-
-        this.setState({players: players});
+        this.setState({lastThrows: modifiedThrows});
     }
 
     resetThrowHistory(playerIndex){
-        let players = this.state.players.slice();
-        let throwsOfPlayer = players[playerIndex].lastThrows.slice();
-
-        players[playerIndex].lastThrows = [];
-
-        this.setState({players: players});
+        let newLastThrows = [];
+        this.setState({lastThrows: newLastThrows});
     }
 
 
@@ -127,17 +195,20 @@ class App extends Component {
     }
 
     addNewPlayer(playerName) {
-        let newUser = {points: 301, playerName: playerName, lastThrows: []};
-
-        let newPlayers = this.state.players.slice();
+        let newUser = {points: 301, playerName: playerName, throws: [[], [], []], numberThrows: 0, totalScore: 0, doubleThrows: 0, tripleThrows: 0};
+        let newPlayers = this.state.players ? this.state.players.slice() : [];
+        console.log("Playe rs : " + JSON.stringify(newPlayers));
         newPlayers.push(newUser);
+
+        console.log(JSON.stringify(newUser) + " added");
+
+        console.log("Playe rs : " + JSON.stringify(newPlayers));
 
         this.setState({players: newPlayers});
     }
 
   render() {
         const self = this;
-
 
         return (
           <div className="App">
@@ -151,6 +222,14 @@ class App extends Component {
 
               <div className="Players">
 
+                  <ul className="lastThrows">
+                      {self.state.lastThrows.map(function(score, indexScore){
+                          return (
+                              <li key={indexScore}>{score}</li>
+                          );
+                      })}
+                  </ul>
+
                   <div className="PlayerContainer" >
                   {this.state.players.map(function (player, indexPlayer) {
                       return (
@@ -159,13 +238,6 @@ class App extends Component {
                                   <br/>
                                    {player.points}
                                    <br/>
-                                   <ul className="lastThrows">
-                                  {self.state.players[indexPlayer].lastThrows.map(function(score, indexScore){
-                                      return (
-                                              <li key={indexScore}>{score}</li>
-                                          );
-                                  })}
-                                   </ul>
                                   <Progress animated color="success" value={301 - player.points} max={301}/>
                           </div>           )
                   })}
